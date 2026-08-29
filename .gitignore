@@ -1,0 +1,16 @@
+# Node / React Native / Expo
+node_modules/
+.expo/
+android/app/build/
+android/build/
+*.apk
+*.aab
+
+# PlatformIO
+.pio/
+.vscode/
+compile_commands.json
+
+# General
+.DS_Store
+*.log
