@@ -3,7 +3,7 @@
     "name": "CarController",
     "slug": "CarController",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
@@ -23,6 +23,20 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-dev-client",
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "يحتاج التطبيق الكاميرا لبث صورة السيارة إلى المشغّل.",
+          "microphonePermission": "يحتاج التطبيق المايك للتحدث مع المشغّل."
+        }
+      ],
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "PORTRAIT_UP"
+        }
+      ],
       "expo-splash-screen"
     ]
   }
