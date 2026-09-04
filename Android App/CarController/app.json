@@ -37,7 +37,8 @@
           "initialOrientation": "PORTRAIT_UP"
         }
       ],
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "./plugins/withUsbPermissions.js"
     ]
   }
 }

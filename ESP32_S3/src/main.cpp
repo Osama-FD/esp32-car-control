@@ -3,13 +3,13 @@
 
 // ============ إعدادات قابلة للتعديل بسهولة ============
 #define SERVO_CENTER  96   // الوضع المستقيم
-#define SERVO_LEFT    65   // أقصى يسار
-#define SERVO_RIGHT   127  // أقصى يمين
+#define SERVO_LEFT    127   // أقصى يسار
+#define SERVO_RIGHT   65  // أقصى يمين
 // =======================================================
 
 // ---- DC Drive Motor Pins ----
-#define MOTOR_PIN1 4
-#define MOTOR_PIN2 5
+#define MOTOR_PIN1 9
+#define MOTOR_PIN2 47
 
 #define PWM_FREQ 5000
 #define PWM_RES  8
@@ -17,19 +17,19 @@
 #define CH_M2 1
 
 // ---- Servo ----
-#define SERVO_PIN 7
+#define SERVO_PIN 2
 Servo steeringServo;
 
 // ---- Stepper Pins (ULN2003) — بدون تغيير ----
-#define PAN_IN1 15
-#define PAN_IN2 16
-#define PAN_IN3 17
-#define PAN_IN4 18
+#define PAN_IN1 39
+#define PAN_IN2 40
+#define PAN_IN3 41
+#define PAN_IN4 42
 
-#define TILT_IN1 8
-#define TILT_IN2 9
-#define TILT_IN3 10
-#define TILT_IN4 11
+#define TILT_IN1 11
+#define TILT_IN2 12
+#define TILT_IN3 13
+#define TILT_IN4 14
 
 #define STEP_DELAY_MS 3
 
