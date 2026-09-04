@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Animated, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 interface Props {
   size: number;
@@ -45,6 +46,16 @@ function unwrap(degrees: number): number {
  * Kept diffable against `phone2-app/src/components/SteeringWheel.tsx`, which is
  * the same control with the operator app's styling. Do not "simplify" either
  * one back to `atan2` on the current touch position — that is the bug.
+ *
+ * A fifth rule, added later: the gesture comes from
+ * `react-native-gesture-handler`, not `PanResponder`. React Native's responder
+ * system grants exactly one responder app-wide, so a PanResponder wheel made
+ * the drive buttons unpressable while turning (it refused to hand the responder
+ * over), and grabbing the wheel while a drive button was held terminated that
+ * button and zeroed the motor. Steering and drive could never be used at once.
+ * Gesture handler recognisers are per-view and per-pointer, so each control
+ * keeps its own finger — which is also why the buttons alongside this wheel use
+ * gesture handler's `Pressable`.
  */
 export function SteeringWheel({ size, disabled = false, onChange }: Props) {
   const rotation = useRef(new Animated.Value(0)).current;
@@ -52,8 +63,6 @@ export function SteeringWheel({ size, disabled = false, onChange }: Props) {
   const centerRef = useRef<{ x: number; y: number } | null>(null);
   const lastAngleRef = useRef<number | null>(null);
   const containerRef = useRef<View>(null);
-  const disabledRef = useRef(disabled);
-  disabledRef.current = disabled;
 
   const [, setDisplay] = useState(0);
   const displayRef = useRef(0);
@@ -102,14 +111,20 @@ export function SteeringWheel({ size, disabled = false, onChange }: Props) {
     return (Math.atan2(dy, dx) * 180) / Math.PI;
   }, [radiusPx]);
 
-  const responder = useMemo(
+  const pan = useMemo(
     () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => !disabledRef.current,
-        onMoveShouldSetPanResponder: () => !disabledRef.current,
-        onPanResponderTerminationRequest: () => false,
-
-        onPanResponderGrant: (_evt, gesture) => {
+      Gesture.Pan()
+        // Steering must respond to the first degree of rotation, not after the
+        // default 10 px activation slop.
+        .minDistance(0)
+        // The finger routinely leaves the wheel's bounds mid-turn; losing the
+        // gesture there would spring the wheel home under the operator's hand.
+        .shouldCancelWhenOutside(false)
+        // No Reanimated in this app, so the callbacks have to be told to run on
+        // the JS thread; they touch refs and Animated values.
+        .runOnJS(true)
+        .enabled(!disabled)
+        .onBegin((event) => {
           // Re-measure on every grab: an orientation change or a layout shift
           // between drags would otherwise leave a stale centre behind.
           measure();
@@ -119,12 +134,11 @@ export function SteeringWheel({ size, disabled = false, onChange }: Props) {
             rotationValueRef.current = current;
           });
           // Null when the grab landed inside the hub deadzone; the first usable
-          // sample of the drag seeds it instead.
-          lastAngleRef.current = angleAt(gesture.x0, gesture.y0);
-        },
-
-        onPanResponderMove: (_evt, gesture) => {
-          const angle = angleAt(gesture.moveX, gesture.moveY);
+          // sample of the drag seeds it instead. Rule 1: absolute coordinates.
+          lastAngleRef.current = angleAt(event.absoluteX, event.absoluteY);
+        })
+        .onUpdate((event) => {
+          const angle = angleAt(event.absoluteX, event.absoluteY);
           if (angle === null) return;
           if (lastAngleRef.current === null) {
             lastAngleRef.current = angle;
@@ -137,18 +151,14 @@ export function SteeringWheel({ size, disabled = false, onChange }: Props) {
             Math.min(MAX_ANGLE_DEG, rotationValueRef.current + delta),
           );
           apply(next);
-        },
-
-        onPanResponderRelease: () => {
+        })
+        // Fires on release, cancellation and failure alike, so there is no path
+        // out of the gesture that leaves the wheel holding a steering angle.
+        .onFinalize(() => {
           lastAngleRef.current = null;
           springHome();
-        },
-        onPanResponderTerminate: () => {
-          lastAngleRef.current = null;
-          springHome();
-        },
-      }),
-    [angleAt, apply, measure, rotation, springHome],
+        }),
+    [angleAt, apply, disabled, measure, rotation, springHome],
   );
 
   const spin = rotation.interpolate({
@@ -157,26 +167,27 @@ export function SteeringWheel({ size, disabled = false, onChange }: Props) {
   });
 
   return (
-    <View
-      ref={containerRef}
-      onLayout={measure}
-      collapsable={false}
-      style={[
-        styles.wheel,
-        { width: size, height: size, borderRadius: size / 2 },
-        disabled && styles.disabled,
-      ]}
-      {...responder.panHandlers}
-    >
-      {/* pointerEvents="none" keeps the touch target on the container above,
-          even as this spins under the finger. Rule 4 in the header comment. */}
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.inner, { transform: [{ rotate: spin }] }]}
+    <GestureDetector gesture={pan}>
+      <View
+        ref={containerRef}
+        onLayout={measure}
+        collapsable={false}
+        style={[
+          styles.wheel,
+          { width: size, height: size, borderRadius: size / 2 },
+          disabled && styles.disabled,
+        ]}
       >
-        <View style={[styles.marker, { height: size / 2 - 10 }]} />
-      </Animated.View>
-    </View>
+        {/* pointerEvents="none" keeps the touch target on the container above,
+            even as this spins under the finger. Rule 4 in the header comment. */}
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.inner, { transform: [{ rotate: spin }] }]}
+        >
+          <View style={[styles.marker, { height: size / 2 - 10 }]} />
+        </Animated.View>
+      </View>
+    </GestureDetector>
   );
 }
 

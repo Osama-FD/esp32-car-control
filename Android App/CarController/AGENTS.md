@@ -58,6 +58,17 @@ exclusive by construction, not by convention — see rule 2.
    (VID `0x303A`, PID `0x1001`) and removes the dead `jcenter()` repository.
    Without it the build succeeds and then never sees the ESP32.
 
+7. **Controls that must work at the same time come from
+   `react-native-gesture-handler`, never from `react-native`.** RN's responder
+   system grants one responder for the whole app, so an RN `TouchableOpacity`
+   could not be held while the wheel was turned, and grabbing the wheel while a
+   drive button was held terminated that button and zeroed the motor. The wheel
+   uses `Gesture.Pan()`; the local direction buttons and the surrounding
+   `ScrollView` come from gesture handler; `App.tsx` wraps everything in
+   `GestureHandlerRootView`, without which none of them respond on Android.
+   `RelaySettingsSheet` lives inside an RN `Modal`, which sits outside that root
+   view — its plain RN `Pressable`s must stay plain.
+
 ## Layout
 
 ```
@@ -87,11 +98,19 @@ and the marker inside the wheel rotates, so the frame of reference turned under
 the finger and the angle jumped.
 
 Four things fix it and all four are load-bearing: the centre is measured once
-per grab with `measureInWindow()`; the angle comes from absolute
-`gestureState.moveX/moveY`; rotation accumulates the *delta* from the previous
+per grab with `measureInWindow()`; the angle comes from the gesture's absolute
+`absoluteX/absoluteY`; rotation accumulates the *delta* from the previous
 sample so a sweep past ±180° cannot wrap; and `pointerEvents="none"` on the
 rotating rim keeps the touch target on the stationary container. A hub deadzone
 drops samples too close to the centre, where a pixel swings the angle wildly.
+
+A fifth rule was added when steering and drive turned out to be mutually
+exclusive: the gesture is `Gesture.Pan()` from `react-native-gesture-handler`,
+not a `PanResponder`. `.minDistance(0)` makes it answer the first degree of
+rotation, `.shouldCancelWhenOutside(false)` keeps the turn alive when the finger
+leaves the rim, `.runOnJS(true)` is required because there is no Reanimated in
+this app, and `.onFinalize()` — not `.onEnd()` — is what springs the wheel home,
+so cancellation and failure cannot leave a steering angle latched.
 
 **Do not "simplify" this back to `atan2` on the current touch position** — that
 is exactly the bug. The file is kept diffable against
