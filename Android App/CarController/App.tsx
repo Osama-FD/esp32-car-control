@@ -1,12 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
+// ScrollView and TouchableOpacity come from gesture handler, not react-native.
+// React Native's responder system grants one responder app-wide, so an RN
+// TouchableOpacity could not be held while the steering wheel was turned:
+// whichever control grabbed the responder second was either ignored or
+// cancelled the first, which is why drive and steer never worked together.
+// Gesture handler's versions are per-view, so each control keeps its own
+// finger — and the scroll view has to come from the same system so it does not
+// steal the wheel's drag back through the old responder path.
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
+  GestureHandlerRootView,
   ScrollView,
   TouchableOpacity,
-} from 'react-native';
+} from 'react-native-gesture-handler';
 import Slider from '@react-native-community/slider';
 import { useKeepAwake } from 'expo-keep-awake';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -67,15 +73,20 @@ export default function App() {
   }
 
   return (
-    <Car
-      usb={usb}
-      settings={settings}
-      setSettings={setSettings}
-      settingsOpen={settingsOpen}
-      setSettingsOpen={setSettingsOpen}
-      remoteMode={remoteMode}
-      setRemoteMode={setRemoteMode}
-    />
+    // GestureHandlerRootView must wrap everything: it is what lets the wheel
+    // and the drive buttons each own a finger. Without it the gesture-handler
+    // controls below silently stop responding on Android.
+    <GestureHandlerRootView style={styles.container}>
+      <Car
+        usb={usb}
+        settings={settings}
+        setSettings={setSettings}
+        settingsOpen={settingsOpen}
+        setSettingsOpen={setSettingsOpen}
+        remoteMode={remoteMode}
+        setRemoteMode={setRemoteMode}
+      />
+    </GestureHandlerRootView>
   );
 }
 
